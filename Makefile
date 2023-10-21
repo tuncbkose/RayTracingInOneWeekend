@@ -13,8 +13,11 @@ all: main
 main: main.o
 	$(CXX) $(LDFLAGS) -o out main.o
 
-test: main
+
+render: main
 	./out > image.ppm
+	
+test: render
 	gwenview image.ppm
 
 clean:
