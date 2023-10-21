@@ -76,6 +76,12 @@ class vec3 {
 
     // implemented below, after double * vec3 is defined
     static vec3 random(double min, double max);
+
+    bool near_zero() const {
+        // Return true if the vector is close to zero in all dims
+        auto s = 1e-8;
+        return (fabs(e[0]) < s) && (fabs(e[1]) < s) && (fabs(e[2]) < s);
+    }
 };
 
 
@@ -178,5 +184,9 @@ inline vec3 random_on_hemisphere(const vec3& normal){
     vec3 on_unit_sphere = random_unit_vector();
     // flip if on wrong hemisphere relative to normal
     return (dot(on_unit_sphere, normal) > 0.) ? on_unit_sphere : -on_unit_sphere;
+}
+
+vec3 reflect(const vec3& v, const vec3& n){
+    return v - 2*dot(v,n)*n;
 }
 

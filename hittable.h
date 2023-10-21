@@ -1,11 +1,15 @@
 #pragma once
 
-#include "ray.h"
+#include "common.h"
+
+class material;
+
 
 class hit_record {
     public:
         point3 p;
         vec3 normal;
+        shared_ptr<material> mat;
         double t;
         bool front_face; // whether the ray hits from the front (true) or back
 
@@ -15,6 +19,7 @@ class hit_record {
             normal = front_face ? outward_normal : -outward_normal;
         }
 };
+
 
 class hittable {
     public:
