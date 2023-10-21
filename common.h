@@ -24,12 +24,18 @@ inline double degrees_to_radians(double degrees) {
     return degrees * pi / 180.0;
 }
 
+// inline double random_double(){
+//     // Returns a random real in [0,1)
+//     // TODO: Make this have different seeds for each thread?
+//     static thread_local pcg32 rng;
+//     std::uniform_real_distribution<double> dis;
+//     return dis(rng);
+// }
+
 inline double random_double(){
-    // Returns a random real in [0,1)
-    // TODO: Make this have different seeds for each thread?
-    static thread_local pcg32 rng;
+    static thread_local std::default_random_engine e;
     std::uniform_real_distribution<double> dis;
-    return dis(rng);
+    return dis(e);
 }
 
 inline double random_double(double min, double max){
