@@ -1,10 +1,10 @@
 #pragma once
 
-#include "common.h"
+#include "utils/common.h"
+#include "utils/color.h"
 
-#include "color.h"
-#include "hittable.h"
-#include "material.h"
+#include "geometry/hittable.h"
+#include "materials/material.h"
 
 #include <iostream>
 

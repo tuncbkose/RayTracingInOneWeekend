@@ -1,12 +1,12 @@
 #define USE_SIMD true
 
-#include "common.h"
+#include "utils/common.h"
+#include "utils/color.h"
 
 #include "camera.h"
-#include "color.h"
-#include "hittable_list.h"
-#include "material.h"
-#include "sphere.h"
+#include "geometry/hittable_list.h"
+#include "geometry/sphere.h"
+#include "materials/material.h"
 
 #include <iostream>
 
