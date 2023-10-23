@@ -10,11 +10,26 @@ static inline int divup(int a, int b){
     return (a + b - 1)/b;
 }
 
+__device__ bool hit_sphere(const vec3& center, float radius, const ray& r){
+    /*
+     *  Returns whether ray r hits a sphere by solving the quadratic equation
+     *  (r(t)-center) \cdot (r(t)-center) = radius^2 
+     */
+    vec3 oc = r.origin() - center;
+    auto a = dot(r.direction(), r.direction());
+    auto b = 2.f * dot(r.direction(), oc);
+    auto c = dot(oc, oc) - radius*radius;
+    auto discriminant = b*b - 4*a*c;
+    return (discriminant >= 0);
+}
+
 __device__ vec3 ray_color(const ray& r){
     /*
      * Calculate the color of given ray
      * 'f's enforce single precision arithmetic for GPU performance
      */
+    if (hit_sphere(vec3(0,0,-1), 0.5, r)) return vec3(1, 0, 0);
+    
     vec3 unit_dir = unit_vector(r.direction());
     auto a = 0.5f*(unit_dir.y() + 1.f);
     return (1.f-a)*vec3(1., 1., 1.) + a*vec3(0.5, 0.7, 1.);
