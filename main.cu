@@ -1,34 +1,19 @@
 #include <iostream>
 
-#include "ray.h"
-
+#include "geometry/hittable.h"
+#include "geometry/hittable_list.h"
+#include "geometry/sphere.h"
+#include "utils/common.h"
 #include "utils/cuda_utils.h"
-#include "utils/vec3.h"
 
-static inline int divup(int a, int b){
-    // Divide and round up, to calculate number of blocks
-    return (a + b - 1)/b;
-}
 
-__device__ bool hit_sphere(const vec3& center, float radius, const ray& r){
-    /*
-     *  Returns whether ray r hits a sphere by solving the quadratic equation
-     *  (r(t)-center) \cdot (r(t)-center) = radius^2 
-     */
-    vec3 oc = r.origin() - center;
-    auto a = dot(r.direction(), r.direction());
-    auto b = 2.f * dot(r.direction(), oc);
-    auto c = dot(oc, oc) - radius*radius;
-    auto discriminant = b*b - 4*a*c;
-    return (discriminant >= 0);
-}
-
-__device__ vec3 ray_color(const ray& r){
+__device__ vec3 ray_color(const ray& r, hittable** world){
     /*
      * Calculate the color of given ray
      * 'f's enforce single precision arithmetic for GPU performance
      */
-    if (hit_sphere(vec3(0,0,-1), 0.5, r)) return vec3(1, 0, 0);
+    hit_record rec;
+    if ((*world)->hit(r, 0, infinity, rec)) return 0.5f*(rec.normal + vec3(1,1,1));
     
     vec3 unit_dir = unit_vector(r.direction());
     auto a = 0.5f*(unit_dir.y() + 1.f);
@@ -36,7 +21,7 @@ __device__ vec3 ray_color(const ray& r){
 }
 
 __global__ void render(vec3* fb, int max_x, int max_y, vec3 top_left_loc, 
-                        vec3 delta_horizontal, vec3 delta_vertical, vec3 origin){
+                        vec3 delta_horizontal, vec3 delta_vertical, vec3 origin, hittable** world){
     /* 
      * - top_left_loc: location of the top-left pixel in the image
      * - delta_horizontal: horizontal difference between pixels (going left)
@@ -51,7 +36,30 @@ __global__ void render(vec3* fb, int max_x, int max_y, vec3 top_left_loc,
     auto pixel_center = top_left_loc + (ix*delta_horizontal) + (iy*delta_vertical);
     ray r(origin, pixel_center-origin);
     
-    fb[ix + iy*max_x] = ray_color(r);
+    fb[ix + iy*max_x] = ray_color(r, world);
+}
+
+__global__ void create_world(hittable** d_list, hittable** d_world){
+    /*
+     * Create the objects in the GPU
+     */
+    if (threadIdx.x == 0 && blockIdx.x == 0){
+        *(d_list) = new sphere(vec3(0,0,-1), 0.5);
+        *(d_list+1) = new sphere(vec3(0, -100.5, -1), 100);
+        *d_world = new hittable_list(d_list, 2);
+    }
+}
+
+__global__ void free_world(hittable** d_list, hittable** d_world){
+    /* 
+     *  Free GPU allocated memory
+     *  the warnings are fine since these are always a derived class
+     */
+    if (threadIdx.x == 0 && blockIdx.x == 0){
+        delete *(d_list);
+        delete *(d_list+1);
+        delete *(d_world);
+    }
 }
 
 int main(){
@@ -81,6 +89,14 @@ int main(){
             
     int num_pixels = image_width * image_height;
     size_t fb_size = num_pixels*sizeof(vec3);
+
+    // Initialize the world
+    hittable** d_list;
+    checkCudaErrors(cudaMalloc(&d_list, 2*sizeof(hittable*))); // clangd warns this but this is fine
+    hittable** d_world;
+    checkCudaErrors(cudaMalloc(&d_world, sizeof(hittable*)));
+    create_world<<<1,1>>>(d_list, d_world);  // 1,1 because we need to do this only once
+    checkCudaErrors(cudaGetLastError());
     
     // Determine blocks and threads for CUDA
     int tx = 8;
@@ -95,13 +111,17 @@ int main(){
     checkCudaErrors(cudaMalloc(&fb_gpu, fb_size));
 
     render<<<blocks, threads>>>(fb_gpu, image_width, image_height, 
-        pixel00_loc, pixel_delta_u, pixel_delta_v, camera_center);
+        pixel00_loc, pixel_delta_u, pixel_delta_v, camera_center, d_world);
     checkCudaErrors(cudaGetLastError());
 
     // Copy results to host
     vec3* fb_host = new vec3[num_pixels];
     checkCudaErrors(cudaMemcpy(fb_host, fb_gpu, fb_size, cudaMemcpyDeviceToHost));
     checkCudaErrors(cudaFree(fb_gpu));  // we are done with GPU memory
+    free_world<<<1,1>>>(d_list, d_world);
+    checkCudaErrors(cudaGetLastError());
+    checkCudaErrors(cudaFree(d_list));
+    checkCudaErrors(cudaFree(d_world));
     
     // Output to file
     
