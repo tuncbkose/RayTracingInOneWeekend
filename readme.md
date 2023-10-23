@@ -3,6 +3,8 @@ Going through [Ray Tracing in One Weekend](https://raytracing.github.io/) series
 ## Todos
   - port to CUDA
   - add proper timing measure/image format
+  - try profiling the code with ncu
+    - don't seem to have the right permissions in IT classroom pc's to use ncu
 
 ## Old
 
